@@ -12,6 +12,7 @@ Use this reference for candidate discovery. A match is an investigation lead, no
 - Files, uploads, downloads, and archives
 - XML and XXE
 - Authentication, tokens, authorization, and tenancy
+- Identity lifecycle, identifiers, external binding, and account creation
 - Cryptography, TLS, and secrets
 - Framework and business-risk surfaces
 
@@ -114,6 +115,20 @@ rg -n -g '*.java' \
 ```
 
 Review token algorithms, key strength, issuer/audience/expiry, replay, refresh, revocation, and `kid`; public token-minting and password-reset flows; object ownership, IDOR, mass assignment, tenant-filter bypass; fail-open role tables; and spoofable gateway/service identity headers.
+
+## Identity Lifecycle, Identifiers, External Binding, and Account Creation
+
+Read [identity-lifecycle.md](identity-lifecycle.md) and inventory discovery, enrollment, verification, binding, approval, activation, recovery, session bootstrap, user or administrator creation, import, synchronization, and deprovisioning.
+
+Do not treat UUIDs and account IDs as secrets by default. Determine whether another route incorrectly treats possession as authentication or authorization. Reverse-trace every identifier, reset code, token, ticket, role, tenant, and workflow-state precondition.
+
+Search business verbs in addition to security keywords:
+
+    rg -n -g '*.java' -g '*.xml' 'match|bind|flow|callback|poll|authorize|exchange|issue|approve|activate|invite|provision|register|regist|import|sync|impersonat|insert.*user|insert.*account' .
+
+For external identity flows, prove that provider-issued server-side evidence supplies matched attributes. Caller-submitted phone, email, employee number, subject, union ID, or external account ID is not proof of identity.
+
+For account creation, distinguish pending registration records from active users, then trace approval, password creation, status, tenant, role or group assignment, notification, and login eligibility.
 
 ## Cryptography, TLS, and Secrets
 

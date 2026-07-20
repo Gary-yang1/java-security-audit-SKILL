@@ -11,6 +11,7 @@ The workflow distinguishes dangerous code from exploitable behavior by requiring
 The skill covers:
 
 - authentication bypass, authorization failures, IDOR, and tenant isolation;
+- identity lifecycle, identifier acquisition, account creation, external binding, session or ticket minting, and cross-service trust;
 - command, script, expression, and deserialization RCE;
 - SQL/NoSQL/LDAP/XPath injection;
 - HTTP/JDBC SSRF and redirect/DNS bypasses;
@@ -79,3 +80,5 @@ java-security-audit/scripts/inventory.sh /path/to/application.jar
 - `unzip` and a SHA-256 utility for artifact inventory.
 
 Dynamic validation is not automatic. Only perform it within explicit authorization, and prefer harmless runtime evidence over destructive or weaponized payloads.
+
+The skill also includes an identity lifecycle reference and a read-only identity-surface scanner. The scanner inventories identifier responses, registration and activation, account creation, external binding, recovery, session or ticket production, imports, synchronization, and cross-module trust candidates. For large applications, write its complete output to a temporary file and review it in chunks.

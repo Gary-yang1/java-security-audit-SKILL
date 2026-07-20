@@ -66,11 +66,27 @@ Distinguish:
 
 Confirm method annotations are enabled by `@EnableMethodSecurity` or `@EnableGlobalMethodSecurity`. Check proxy limitations, self-invocation, final/private methods, and interface-vs-implementation annotations.
 
+For custom authentication or authorization annotations, identify the exact Filter, Interceptor, aspect, argument resolver, or method-security component that enforces them. Registration of the annotation class alone provides no protection. Treat commented, unreachable, exception-swallowing, or unconditional-allow enforcement as fail-open.
+
 For database-driven URL-role mappings, determine behavior when the table is empty, a URL is missing or normalized differently, wildcard patterns overlap, loading fails, the cache is stale, or a super/admin shortcut applies. Missing mappings are secure only when the final decision is deny-by-default.
+
+## Fail-Open Coverage Expansion
+
+When a broad Filter, Interceptor, chain, gateway rule, or custom annotation mechanism fails open:
+
+1. determine exact path and dispatch coverage;
+2. temporarily classify every covered route as anonymous or low-trust;
+3. rescan every sensitive response and state-changing method under that coverage;
+4. include unannotated business flows such as matching, binding, callbacks, polling, approval, import, synchronization, and ticket exchange;
+5. restore a stronger precondition only when another active layer proves it.
+
+Do not sample a few obviously sensitive routes and stop. Reconcile the full route ledger after discovering fail-open behavior.
 
 ## JWT and Service Trust
 
 Verify fixed accepted algorithms, adequate key material, `iss`, `aud`, `exp`, `nbf`, token type, revocation/rotation, refresh constraints, public signing/token-exchange endpoints, proxy/service headers, and `X-Forwarded-For` trust.
+
+For cross-service tickets or cache-backed sessions, pair every producer with every consumer. Compare format, key identity without exposing key values, cache namespace and database, subject and tenant binding, TTL, audience or purpose, atomic consumption, and replay behavior.
 
 ## Tenant and Object Authorization
 

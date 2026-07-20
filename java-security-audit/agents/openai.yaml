@@ -1,4 +1,4 @@
 interface:
   display_name: "Java Security Audit"
-  short_description: "Audit Java and Spring apps for exploitable security flaws"
-  default_prompt: "Use $java-security-audit to audit this Java application and report only evidence-backed security findings."
+  short_description: "Audit Java identity flows and exploitable security flaws"
+  default_prompt: "Use $java-security-audit to audit this Java application, including identity lifecycle and cross-service trust flows, and report only evidence-backed security findings."

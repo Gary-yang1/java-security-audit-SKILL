@@ -1,6 +1,6 @@
 ---
 name: java-security-audit
-description: Audit Java Web, Spring Boot, SSM, and microservice source code or packaged JAR/WAR artifacts for evidence-backed authentication bypass, authorization flaws, injection, RCE, SSRF, unsafe deserialization, file vulnerabilities, tenant isolation failures, dependency risks, cryptographic weaknesses, and exposed secrets. Use when reviewing Java source, decompiled code, executable artifacts, security findings, or preparing a security audit report.
+description: Audit Java Web, Spring Boot, SSM, and microservice source code or packaged JAR/WAR artifacts for evidence-backed authentication bypass, identity-lifecycle flaws, identifier disclosure, session or token minting, user or administrator creation, authorization and tenant failures, injection, RCE, SSRF, unsafe deserialization, file vulnerabilities, dependency risks, cryptographic weaknesses, and exposed secrets. Use when reviewing Java source, decompiled code, executable artifacts, security findings, or preparing a security audit report.
 ---
 
 # Java Security Audit
@@ -11,17 +11,21 @@ Perform a source-to-sink audit that distinguishes dangerous code from exploitabl
 
 - Use `rg` and `rg --files` for discovery. Preserve the target and keep static review read-only.
 - Do not label a keyword match as a vulnerability. Confirm input control, data flow, component registration, route reachability, authorization, effective configuration, and sink behavior.
+- Do not stop at a sink whose exploitability depends on an identifier, token, ticket, tenant, role, or workflow state. Reverse-trace how an attacker could obtain or influence every required capability.
 - Separate source-level existence from deployment-level exploitability. Record contradictions instead of forcing a conclusion.
 - Redact secrets in notes and reports. Identify their locations and types without copying live values.
 - Perform dynamic validation only within explicit authorization. Prefer runtime mapping inspection and harmless proofs over weaponized payloads.
 - Report only the severities requested by the user. Do not inflate ratings by chaining unrelated findings unless the chain is demonstrably reachable.
+- Treat route coverage as a deliverable. Do not claim a full external-entry audit from sampled searches or truncated output.
 
 ## Resource Routing
 
 - Read [references/sinks.md](references/sinks.md) when locating or triaging dangerous sources and sinks.
 - Read [references/spring-security.md](references/spring-security.md) for Spring component scanning, route registration, filter chains, method authorization, gateway prefixes, profiles, and configuration precedence.
+- Read [references/identity-lifecycle.md](references/identity-lifecycle.md) whenever the application authenticates users, exposes SSO or recovery, binds external identities, imports or synchronizes accounts, or uses identifiers and tickets as authorization inputs.
 - Read [references/decompilation.md](references/decompilation.md) when the target includes JAR/WAR files, nested Spring Boot libraries, or decompiled sources.
 - Run `scripts/inventory.sh <path>` for a deterministic, read-only first-pass inventory. Inspect the script before adapting it to an unusual layout.
+- Run scripts/identity-surface.sh with a source path and optional output file for Java web applications with identity or account functionality. Review large output from a temporary file in chunks instead of truncating unreviewed candidates.
 
 ## Workflow
 
@@ -45,6 +49,7 @@ Run the inventory script, then identify:
 - Maven/Gradle metadata and the versions actually packaged under `BOOT-INF/lib`, `WEB-INF/lib`, shaded JARs, or container layers;
 - application profiles, external configuration hooks, Kubernetes manifests, gateway routes, servlet context paths, and reverse-proxy rewrites;
 - trust boundaries: HTTP, messaging, scheduled tasks, file import, database records later interpreted as code/configuration, and service-to-service calls.
+- identity boundaries: account lookup, registration, invitation, approval, activation, recovery, MFA, external binding, SSO or token exchange, session bootstrap, user or administrator creation, import, synchronization, and deprovisioning.
 
 For executable artifacts, follow `references/decompilation.md` before accepting source-only conclusions.
 
@@ -53,6 +58,23 @@ For executable artifacts, follow `references/decompilation.md` before accepting 
 Use `references/sinks.md` to search by category. Prioritize sinks capable of code execution, authentication bypass, cross-tenant access, arbitrary SQL, SSRF, unsafe file writes, or secret disclosure.
 
 Treat search hits as candidates. Record the dangerous argument and owning method, not merely the matching line.
+
+For web applications, create a route ledger before prioritizing findings:
+
+| Entry point | Auth decision | Attacker-controlled identity fields | Sensitive response fields | State-changing sink | Tenant/object check |
+|---|---|---|---|---|---|
+
+Include every externally reachable controller method, RPC endpoint, GraphQL resolver, WebSocket handler, and relevant message consumer. Mark entries reviewed, conditional, inactive, or pending. Do not silently omit low-signal business routes.
+
+### 2A. Close Capability Preconditions
+
+For every candidate, trace source to sink as described below, then reverse-trace each required capability:
+
+    required UUID / account ID / tenant ID / reset code / token / ticket / role / workflow state
+    ← response, redirect, cookie, log, cache, message, database, QR code, callback, import, or predictable generation
+    ← attacker action needed to obtain or influence it
+
+Treat sensitive outputs as future sources. An internal identifier may be low impact alone but critical when another reachable method treats possession as proof of identity or authority. Merge only demonstrably connected steps and state configuration or deployment conditions explicitly.
 
 ### 3. Trace Source → Transform → Sink
 
@@ -76,6 +98,8 @@ Evaluate every defense semantically:
 - Is SQL structure allowlisted rather than keyword-blocked?
 - Is a file path normalized and constrained to a canonical root?
 - Is a signature bound to every security-sensitive field and protected against replay?
+- Does external-identity binding verify provider-issued server-side evidence, or merely trust caller-supplied email, phone, subject, union ID, employee ID, or account ID?
+- Does account creation, approval, import, impersonation, or role assignment require the correct role and tenant rather than only a valid session?
 
 ### 4. Prove Component and Route Reachability
 
@@ -106,9 +130,28 @@ Check default behavior when a URL has no role mapping, the permission service fa
 
 Distinguish authentication from authorization. A valid token does not prove the caller may act on another user's file, workflow, tenant, role, or account.
 
+If a broad Filter, Interceptor, SecurityFilterChain, gateway rule, or method-annotation mechanism is missing, inactive, or fail-open:
+
+1. temporarily classify every route in its coverage as anonymous or low-trust;
+2. re-review all identifier-returning and state-changing routes in that coverage;
+3. inspect business-named flows such as match, bind, callback, poll, authorize, exchange, approve, activate, invite, import, and sync;
+4. restore a stronger precondition only when another active control proves it.
+
+Do not assume an authentication annotation executes. Prove its Filter, Interceptor, aspect, proxy, matcher, enabling configuration, and final decision.
+
 ### 6. Resolve Effective Configuration and Dependencies
 
 Resolve active values across packaged defaults, profiles, external files, environment variables, JVM/command-line options, configuration centers, ConfigMaps, and Secrets. Mark values as packaged defaults when production overrides are unknown.
+
+For multi-module and microservice systems, correlate trust producers and consumers:
+
+- cache key names, namespaces, and database indexes;
+- cookie names and domains;
+- ticket, JWT, SSO assertion, API-key, and reset-token formats;
+- encryption or signing key identity without printing key material;
+- issuer, audience, tenant, subject, TTL, replay, and one-time-consumption semantics.
+
+Do not assume similarly named values interoperate. Compare formats, keys, stores, and effective configuration. Do not miss a chain merely because producer and consumer live in different modules.
 
 For dependency findings:
 
@@ -131,6 +174,7 @@ Before assigning severity, answer every item:
 | Ineffective defense | Explain why validation, encoding, sandboxing, or allowlisting fails. |
 | Registration/reachability | Prove the Bean/job/consumer and route or trigger are active. |
 | Authorization | State anonymous, low-privilege, role, tenant, or service preconditions. |
+| Precondition closure | Show how required identifiers, tokens, tickets, roles, tenant context, or workflow states can be obtained or controlled. |
 | Runtime conditions | State required network, filesystem, database, JVM, or dependency conditions. |
 | Impact | Tie the sink to concrete confidentiality, integrity, or availability loss. |
 
@@ -168,18 +212,24 @@ Include for each finding:
 5. Bean/route/job/consumer registration evidence;
 6. authentication, role, ownership, and tenant preconditions;
 7. effective configuration and environmental dependencies;
-8. concrete impact and realistic attack chain;
-9. non-destructive validation evidence or an explicit reason it was not performed;
-10. code-level remediation, compensating controls, priority, and acceptance criteria.
+8. acquisition path for every required identifier, token, ticket, tenant, role, or workflow state;
+9. concrete impact and realistic attack chain;
+10. non-destructive validation evidence or an explicit reason it was not performed;
+11. code-level remediation, compensating controls, priority, and acceptance criteria.
 
 Do not require a weaponized PoC. A complete static chain plus safe runtime evidence is preferable. Keep secret values redacted.
 
 ## Completion Checklist
 
 - Reconcile source tree, packaged artifact, and deployed version.
-- Review every externally reachable entry point and every critical sink candidate.
+- Produce and reconcile a route ledger for every externally reachable entry point and every critical sink candidate.
+- Complete the identity-lifecycle matrix when accounts, authentication, SSO, recovery, external binding, import, or synchronization exist.
+- Reverse-trace all capability preconditions, including identifiers, reset codes, tokens, tickets, roles, tenant context, and workflow states.
+- Re-review every identifier-returning and state-changing route after finding a broad fail-open control.
+- Correlate cross-module trust producers and consumers, including caches, tickets, cookies, keys, issuers, audiences, TTLs, and replay semantics.
 - Resolve component registration and security-chain selection before claiming exposure.
 - Check authorization and tenant ownership beyond authentication.
 - Separate confirmed, conditional, and unreachable findings.
+- Preserve full discovery output or record why candidates were excluded. Do not treat truncated terminal output as reviewed.
 - Remove duplicates and chained restatements from the final count.
 - Verify report severity counts, paths, links, hashes, redaction, and remediation acceptance criteria.
